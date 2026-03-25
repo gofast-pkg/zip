@@ -1,6 +1,6 @@
 module github.com/gofast-pkg/zip
 
-go 1.20
+go 1.25
 
 require (
 	github.com/pkg/errors v0.9.1
