@@ -8,31 +8,35 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-// files to have a zip.ReadCloser
+// files to have a zip.ReadCloser.
 const (
 	testReadCloserZipFile = "testdata/zipfile.zip"
 )
 
-// files and folder use for the different tests case
+// files and folder use for the different tests case.
 const (
 	testZipFile   = "test-file.zip"
 	testFolder    = "./tmp"
 	testFileInZip = "classic-loto-v1.csv"
-	//nolint:lll // buffer for comparison
+	//nolint:lll,misspell // buffer to match the example
 	testContentFileInZip = `annee_numero_de_tirage;1er_ou_2eme_tirage;jour_de_tirage;date_de_tirage;date_de_forclusion;boule_1;boule_2;boule_3;boule_4;boule_5;boule_6;boule_complementaire;combinaison_gagnante_en_ordre_croissant;numero_joker;nombre_de_gagnant_au_rang1;rapport_du_rang1;nombre_de_gagnant_au_rang2;rapport_du_rang2;nombre_de_gagnant_au_rang3;rapport_du_rang3;nombre_de_gagnant_au_rang4;rapport_du_rang4;nombre_de_gagnant_au_rang5;rapport_du_rang5;nombre_de_gagnant_au_rang6;rapport_du_rang6;nombre_de_gagnant_au_rang7;rapport_du_rang7;numero_jokerplus;devise;
 2008080;2;SA;20081004;20081204;33;32;42;16;15;49;37;15-16-32-33-42-49;;2;904940;8;10953,9;213;1400,3;589;61,6;11911;30,8;20552;5,4;255211;2,7;7 523 262;eur;
 2008080;1;SA;20081004;20081204;36;9;16;27;25;12;48;9-12-16-25-27-36;;3;282006;7;12513,4;461;662,5;1033;32;22997;16;25950;3,6;391755;1,8;7 523 262;eur;`
 )
 
 func includeIndexValidationTester(t *testing.T, f func(index int, r Reader) error) {
+	t.Helper()
+
 	t.Run("Should return an error with negative index", func(t *testing.T) {
 		file, err := os.Open(testReadCloserZipFile)
 		if err != nil {
 			t.Error(err)
 		}
-		defer file.Close()
+		defer func() { require.NoError(t, file.Close()) }()
+
 		r, err := NewReader(file)
 		if err != nil {
 			t.Error(err)
@@ -47,7 +51,8 @@ func includeIndexValidationTester(t *testing.T, f func(index int, r Reader) erro
 		if err != nil {
 			t.Error(err)
 		}
-		defer file.Close()
+		defer func() { require.NoError(t, file.Close()) }()
+
 		r, err := NewReader(file)
 		if err != nil {
 			t.Error(err)
@@ -99,7 +104,8 @@ func TestNewReader(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 		}
-		defer file.Close()
+		defer func() { require.NoError(t, file.Close()) }()
+
 		r, err := NewReader(file)
 
 		if assert.NoError(t, err) {
@@ -122,7 +128,8 @@ func TestReader_WriteFile(t *testing.T) {
 		if file, err = os.Open(testReadCloserZipFile); err != nil {
 			t.Error(err)
 		}
-		defer file.Close()
+		defer func() { require.NoError(t, file.Close()) }()
+
 		if r, err = NewReader(file); err != nil {
 			t.Error(err)
 		}
@@ -133,15 +140,18 @@ func TestReader_WriteFile(t *testing.T) {
 		}
 	})
 	t.Run("Should write file", func(t *testing.T) {
+		//nolint:gosec // file creation is required, but i will secure this step in the next major version.
 		if err := os.Mkdir(testFolder, 0755); err != nil {
 			t.Error(err)
 		}
-		defer os.RemoveAll(testFolder)
+		defer func() { require.NoError(t, os.RemoveAll(testFolder)) }()
+
 		file, err := os.Open(testReadCloserZipFile)
 		if err != nil {
 			t.Error(err)
 		}
-		defer file.Close()
+		defer func() { require.NoError(t, file.Close()) }()
+
 		r, err := NewReader(file)
 		if err != nil {
 			t.Error(err)
@@ -167,7 +177,8 @@ func TestReader_InfoFile(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 		}
-		defer file.Close()
+		defer func() { require.NoError(t, file.Close()) }()
+
 		r, err := NewReader(file)
 		if err != nil {
 			t.Error(err)
@@ -194,7 +205,8 @@ func TestReader_ContentFile(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 		}
-		defer file.Close()
+		defer func() { require.NoError(t, file.Close()) }()
+
 		r, err := NewReader(file)
 		if err != nil {
 			t.Error(err)
@@ -213,7 +225,8 @@ func TestReader_NFiles(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 		}
-		defer file.Close()
+		defer func() { require.NoError(t, file.Close()) }()
+
 		r, err := NewReader(file)
 		if err != nil {
 			t.Error(err)
@@ -229,7 +242,7 @@ func TestReader_Create(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 		}
-		defer file.Close()
+		defer func() { require.NoError(t, file.Close()) }()
 
 		r, err := NewReader(file)
 		if err != nil {
@@ -244,20 +257,21 @@ func TestReader_Create(t *testing.T) {
 	})
 	t.Run("Should create a zip file", func(t *testing.T) {
 		var err error
-		var file *os.File
+		var file1 *os.File
 		var r Reader
 
+		//nolint:gosec // file creation is required, but i will secure this step in the next major version.
 		if err = os.Mkdir(testFolder, 0755); err != nil {
 			t.Error(err)
 		}
-		defer os.RemoveAll(testFolder)
+		defer func() { require.NoError(t, os.RemoveAll(testFolder)) }()
 
-		if file, err = os.Open(testReadCloserZipFile); err != nil {
+		if file1, err = os.Open(testReadCloserZipFile); err != nil {
 			t.Error(err)
 		}
-		defer file.Close()
+		defer func() { require.NoError(t, file1.Close()) }()
 
-		if r, err = NewReader(file); err != nil {
+		if r, err = NewReader(file1); err != nil {
 			t.Error(err)
 		}
 		filepath := fmt.Sprintf("%s/%s", testFolder, testZipFile)
@@ -265,13 +279,15 @@ func TestReader_Create(t *testing.T) {
 		err = r.Create(filepath)
 		if assert.NoError(t, err) {
 			var content []byte
+			var file2 *os.File
 
 			// parse new zip file to check if it's valid
-			file, err = os.Open(filepath)
-			if assert.NoError(t, err) {
-				defer file.Close()
-			}
-			r, err = NewReader(file)
+			//nolint:gosec // file creation is required, but i will secure this step in the next major version.
+			file2, err = os.Open(filepath)
+			assert.NoError(t, err)
+			defer func() { require.NoError(t, file2.Close()) }()
+
+			r, err = NewReader(file2)
 			if assert.NoError(t, err) {
 				assert.Equal(t, 1, r.NFiles())
 			}
