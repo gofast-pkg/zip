@@ -1,7 +1,12 @@
 # CHANGELOG
 
-## v0.0.3
+## v1.0.0
 
 - update codesystem
-- update linter
-- remove duplicated zip buffer
+- fix linter
+- remove unsecure nolint directive
+- update the interface to avoid security issues
+- fix unit tests
+- fix example
+- update documentation
+- improve error handling

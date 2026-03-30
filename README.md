@@ -6,10 +6,11 @@
 [![codecov](https://codecov.io/gh/gofast-pkg/zip/branch/main/graph/badge.svg?token=7TCE3QB21E)](https://codecov.io/gh/gofast-pkg/zip)
 [![Release](https://img.shields.io/github/release/gofast-pkg/zip?style=flat-square)](https://github.com/gofast-pkg/zip/releases)
 [![Go Report Card](https://goreportcard.com/badge/github.com/gofast-pkg/zip)](https://goreportcard.com/report/github.com/gofast-pkg/zip)
-[![codebeat badge](https://codebeat.co/badges/9338570f-6fe5-4095-bf2f-93a53c5dc800)](https://codebeat.co/projects/github-com-gofast-pkg-zip-main)
 [![License](http://img.shields.io/badge/license-mit-blue.svg?style=flat-square)](https://raw.githubusercontent.com/gofast-pkg/zip/blob/main/LICENSE)
 
-Package zip process a compressed file read, write and clone it
+This package provides a simple abstraction to read and process files from a ZIP archive.
+
+It exposes a Reader interface that allows consumers to interact with compressed files without dealing directly with the underlying archive/zip implementation. The package is designed to be straightforward, testable, and easy to integrate into your codebase.
 
 ## Install
 
@@ -17,35 +18,20 @@ Package zip process a compressed file read, write and clone it
 $> go get github.com/gofast-pkg/zip@latest
 ```
 
+## Key Features
+
+* Unified interface (Reader)
+* Retrieve the number of files in the archive
+* Read file contents by index
+* Access file metadata
+* Write file contents directly to an io.Writer
+* In-memory processing
+
+Files are accessed by index, ensuring deterministic behavior aligned with the ZIP structure.
+
 ## Usage
 
-``` Golang
-import github.com/gofast-pkg/zip
-
-func main() {
-  file, err := os.Open(testReadCloserZipFile)
-  if err != nil {
-    panic(err)
-  }
-  defer file.Close()
-
-  r, err := zip.NewReader(file)
-  if err != nil {
-    log.Fatal(err)
-  }
-
-  // Iterate through the files in the archive,
-  for i := 0; i < r.NFiles(); i++ {
-    var content []byte
-    if content, err = r.ContentFile(i); err != nil {
-      panic(err)
-    }
-    // do something
-  }
-}
-```
-
-Check the [go documentation](https://pkg.go.dev/github.com/gofast-pkg/zip) for more details.
+Check [the example](./example_test.go) and the [go documentation](https://pkg.go.dev/github.com/gofast-pkg/zip) for more details.
 
 ## Contributing
 

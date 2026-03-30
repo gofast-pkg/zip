@@ -8,18 +8,32 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"os"
 )
 
-// Reader is the interface that wraps the basic methods to process a compressed file / body.
+// Errors supported by the zip.Reader operations.
+var (
+	ErrNilReader         = errors.New("reader is nil")
+	ErrNilWriter         = errors.New("writer is nil")
+	ErrToReadReader      = errors.New("fails to read the reader")
+	ErrToCreateZipReader = errors.New("fails to create a zip.Reader")
+	ErrInvalidIndex      = errors.New("file index reference is invalid")
+	ErrToReadFile        = errors.New("fails to read file in the zip.Reader")
+	ErrToWriteFile       = errors.New("fails to write file")
+	ErrToOpenFile        = errors.New("fails to open file in the zip.Reader")
+)
+
+// Reader is the interface that wraps the basic methods to process compressed file(s).
 //
 //mockery:generate: true
 type Reader interface {
-	Create(filepath string) error
-	NFiles() int
-	ContentFile(index int) ([]byte, error)
+	// NumFile returns the number of files in the compressed file / body.
+	NumFile() int
+	// Read the content of a file and return the body.
+	Read(index int) ([]byte, error)
+	// InfoFile returns the information of a file.
 	InfoFile(index int) (fs.FileInfo, error)
-	WriteFile(index int, filepath string) error
+	// Write the content in the io.Writer parameter.
+	Write(w io.Writer, index int) error
 }
 
 type reader struct {
@@ -27,7 +41,7 @@ type reader struct {
 	copy  []byte
 }
 
-// NewReader returns a Reader interface
+// NewReader returns a Reader interface for the zip.
 // It receives a io.ReadCloser interface from http request or file.
 func NewReader(input io.ReadCloser) (Reader, error) {
 	var err error
@@ -35,14 +49,14 @@ func NewReader(input io.ReadCloser) (Reader, error) {
 	var zr *zip.Reader
 
 	if input == nil {
-		return nil, ErrInvalidInput
+		return nil, ErrNilReader
 	}
 	if data, err = io.ReadAll(input); err != nil {
-		return nil, err
+		return nil, errors.Join(err, ErrToReadReader)
 	}
 
 	if zr, err = zip.NewReader(bytes.NewReader(data), int64(len(data))); err != nil {
-		return nil, err
+		return nil, errors.Join(err, ErrToCreateZipReader)
 	}
 
 	return &reader{
@@ -51,37 +65,6 @@ func NewReader(input io.ReadCloser) (Reader, error) {
 	}, nil
 }
 
-// WriteFile writes the content of a file in a specific path.
-func (r reader) WriteFile(index int, filepath string) error {
-	var err error
-	var info fs.FileInfo
-	var body []byte
-	var f *os.File
-
-	if err = r.indexValidation(index); err != nil {
-		return err
-	}
-	if info, err = r.InfoFile(index); err != nil {
-		return err
-	}
-	if body, err = r.ContentFile(index); err != nil {
-		return err
-	}
-	path := fmt.Sprintf("%s/%s", filepath, info.Name())
-	//nolint:gosec // file creation is required, but i will secure this step in the next major version.
-	if f, err = os.Create(path); err != nil {
-		return err
-	}
-	defer func() { err = errors.Join(err, f.Close()) }()
-
-	if _, err = f.Write(body); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// InfoFile returns the information of a file.
 func (r reader) InfoFile(index int) (fs.FileInfo, error) {
 	var err error
 	var info fs.FileInfo
@@ -94,8 +77,11 @@ func (r reader) InfoFile(index int) (fs.FileInfo, error) {
 	return info, nil
 }
 
-// ContentFile returns the content of a file.
-func (r reader) ContentFile(index int) ([]byte, error) {
+func (r reader) NumFile() int {
+	return len(r.input.File)
+}
+
+func (r reader) Read(index int) ([]byte, error) {
 	var err error
 	var rc io.ReadCloser
 
@@ -104,31 +90,34 @@ func (r reader) ContentFile(index int) ([]byte, error) {
 	}
 
 	if rc, err = r.input.File[index].Open(); err != nil {
-		return nil, err
+		return nil, errors.Join(ErrToOpenFile, fmt.Errorf("index file %d: %w", index, err))
 	}
 	defer func() { err = errors.Join(err, rc.Close()) }()
 
-	return io.ReadAll(rc)
+	body, err := io.ReadAll(rc)
+	if err != nil {
+		return nil, errors.Join(ErrToReadFile, fmt.Errorf("index file %d: %w", index, err))
+	}
+
+	return body, nil
 }
 
-// NFiles returns the number of files in the compressed file / body.
-func (r reader) NFiles() int {
-	return len(r.input.File)
-}
-
-// Create a file in a specific path.
-func (r reader) Create(filepath string) error {
+func (r reader) Write(w io.Writer, index int) error {
 	var err error
-	var f *os.File
+	var body []byte
 
-	//nolint:gosec // file creation is required, but i will secure this step in the next major version.
-	if f, err = os.Create(filepath); err != nil {
+	if w == nil {
+		return ErrNilWriter
+	}
+
+	if err = r.indexValidation(index); err != nil {
 		return err
 	}
-	defer func() { err = errors.Join(err, f.Close()) }()
-
-	if _, err = f.Write(r.copy); err != nil {
-		return err
+	if body, err = r.Read(index); err != nil {
+		return errors.Join(ErrToReadFile, fmt.Errorf("index file %d: %w", index, err))
+	}
+	if _, err := w.Write(body); err != nil {
+		return errors.Join(ErrToWriteFile, fmt.Errorf("index file %d: %w", index, err))
 	}
 
 	return nil
